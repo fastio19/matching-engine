@@ -1,1 +1,28 @@
- 
+ # 🔨 Build directories
+build/
+bin/
+out/
+
+# 🧾 Object files
+*.o
+*.obj
+
+# ⚙️ Executables
+*.exe
+*.out
+*.app
+
+# 🐞 Debug files
+*.pdb
+*.ilk
+
+# 🧠 VS Code
+.vscode/
+
+# 🧰 CMake (for later use)
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# 🧹
