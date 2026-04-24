@@ -20,15 +20,16 @@ public:
     void cancelOrder(OrderId orderId);
 
 private:
-    OrderBook& book;
-
+    //For Each instrument, we maintain a separate order book
+    std::unordered_map<uint32_t, OrderBook> books;
+    std::unordered_map<OrderId, uint32_t> orderToInstrument;
     // ------------------- Matching Logic -------------------
 
     // Match incoming BUY order against asks
-    void matchBuy(Order& buyOrder);
+    void matchBuy(Order& buyOrder, OrderBook& book);
 
     // Match incoming SELL order against bids
-    void matchSell(Order& sellOrder);
+    void matchSell(Order& sellOrder, OrderBook& book);
 
     // ------------------- Trade Handling -------------------
 

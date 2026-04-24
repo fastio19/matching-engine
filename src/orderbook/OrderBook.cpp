@@ -1,4 +1,5 @@
 #include "OrderBook.h"
+#include <iostream>
 
 bool OrderBook::hasBids() const
 {
@@ -187,4 +188,27 @@ void OrderBook::modifyOrder(const Order& newOrder)
 
     // Reinsert as new order (new priority)
     addOrder(newOrder);
+}
+
+void OrderBook::print() const
+{
+    std::cout << "\n--- ORDER BOOK ---\n";
+
+    std::cout << "ASKS:\n";
+    for (const auto& [price, orders] : asks)
+    {
+        for (const auto& o : orders)
+        {
+            std::cout << price << " | " << o.quantity << "\n";
+        }
+    }
+
+    std::cout << "BIDS:\n";
+    for (const auto& [price, orders] : bids)
+    {
+        for (const auto& o : orders)
+        {
+            std::cout << price << " | " << o.quantity << "\n";
+        }
+    }
 }

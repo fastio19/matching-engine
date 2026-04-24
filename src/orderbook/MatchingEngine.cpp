@@ -4,7 +4,6 @@
 #include "utils/IdGenerator.h"
 using namespace std;
 
-MatchingEngine::MatchingEngine(OrderBook& orderBook) : book(orderBook) {}
 
 // ------------------------------------------------------------
 // Process Incoming Order
@@ -17,19 +16,22 @@ void MatchingEngine::processOrder(Order order)
         return;
     }
 
+    auto& book = books[order.instrumentId];
+
     if (order.side == Side::BUY)
     {
-        matchBuy(order);
+        matchBuy(order,book);
     }
     else    
     {
-        matchSell(order);
+        matchSell(order,book);
     }
 
     // If still remaining → add to book
     if (order.quantity > 0)
     {
         book.addOrder(order);
+        orderToInstrument[order.id] = order.instrumentId;
     }
 }
 
@@ -38,13 +40,29 @@ void MatchingEngine::processOrder(Order order)
 // ------------------------------------------------------------
 void MatchingEngine::cancelOrder(OrderId orderId)
 {
-    book.cancelOrder(orderId);
+    auto orderToInstrumentIt  = orderToInstrument.find(orderId);
+    if (orderToInstrumentIt == orderToInstrument.end())
+    {
+        std::cerr << "Order not found: " << orderId << "\n";
+        return;
+    }
+    uint32_t instrumentId = orderToInstrumentIt->second;
+
+    auto instrumentBookIt = books.find(instrumentId);
+    if (instrumentBookIt == books.end())
+    {
+        std::cerr << "OrderBook not found for instrument: " << instrumentId << "\n";
+        return;
+    }
+
+    instrumentBookIt->second.cancelOrder(orderId);
+    orderToInstrument.erase(orderToInstrumentIt);
 }
 
 // ------------------------------------------------------------
 // Match BUY Order
 // ------------------------------------------------------------
-void MatchingEngine::matchBuy(Order& buyOrder)
+void MatchingEngine::matchBuy(Order& buyOrder, OrderBook& book)
 {
     while (buyOrder.quantity > 0 && book.hasAsks())
     {
@@ -83,7 +101,7 @@ void MatchingEngine::matchBuy(Order& buyOrder)
 // ------------------------------------------------------------
 // Match SELL Order
 // ------------------------------------------------------------
-void MatchingEngine::matchSell(Order& sellOrder)
+void MatchingEngine::matchSell(Order& sellOrder, OrderBook& book)
 {
     while (sellOrder.quantity > 0 && book.hasBids())
     {
