@@ -1,5 +1,8 @@
 #pragma once
 #include <cstdint>
+ 
+typedef uint8_t OrderId;
+typedef double Price;
 
 enum class Side : uint8_t {
     BUY,
