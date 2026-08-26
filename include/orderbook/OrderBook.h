@@ -4,9 +4,7 @@
 #include <map>
 #include <unordered_map>
 #include <list>
-#include "order.h"
-
-using namespace std;
+#include "core/Order.h"
 
 class OrderBook {
 public:
@@ -45,7 +43,7 @@ public:
 
     void print() const;
 private:
-    map<Price, OrderList,std::greater<>> bids;
-    map<Price, OrderList> asks;
-    unordered_map<OrderId, std::pair<Price, OrderList::iterator>> orderMap;
+    std::map<Price, OrderList, std::greater<>> bids;
+    std::map<Price, OrderList> asks;
+    std::unordered_map<OrderId, std::pair<Price, OrderList::iterator>> orderMap;
 };

@@ -1,18 +1,24 @@
 #include <iostream>
-#include "MatchingEngine.h"
+#include <algorithm>
+#include <utility>
+#include "orderbook/MatchingEngine.h"
 #include "utils/TimeUtils.h"
 #include "utils/IdGenerator.h"
-using namespace std;
-
 
 // ------------------------------------------------------------
 // Process Incoming Order
 // ------------------------------------------------------------
 void MatchingEngine::processOrder(Order order)
 {
-    if (order.quantity <= 0 || order.price <= 0)
+    if (order.quantity == 0)
     {
-        std::cerr << "Invalid order\n";
+        std::cerr << "Invalid order: quantity must be > 0\n";
+        return;
+    }
+
+    if (order.type == OrderType::LIMIT && order.price <= 0)
+    {
+        std::cerr << "Invalid order: limit price must be > 0\n";
         return;
     }
 
@@ -27,11 +33,15 @@ void MatchingEngine::processOrder(Order order)
         matchSell(order,book);
     }
 
-    // If still remaining → add to book
-    if (order.quantity > 0)
+    // Only limit orders can rest on the book.
+    if (order.quantity > 0 && order.type == OrderType::LIMIT)
     {
         book.addOrder(order);
         orderToInstrument[order.id] = order.instrumentId;
+    }
+    else if (order.quantity > 0)
+    {
+        std::cerr << "Unfilled market order quantity discarded: " << order.quantity << "\n";
     }
 }
 
@@ -59,6 +69,20 @@ void MatchingEngine::cancelOrder(OrderId orderId)
     orderToInstrument.erase(orderToInstrumentIt);
 }
 
+void MatchingEngine::printAllBooks() const
+{
+    for (const auto& [instrumentId, book] : books)
+    {
+        std::cout << "\n=== Instrument: " << instrumentId << " ===\n";
+        book.print();
+    }
+}
+
+void MatchingEngine::setTradeHandler(std::function<void(const Trade&)> handler)
+{
+    tradeHandler = std::move(handler);
+}
+
 // ------------------------------------------------------------
 // Match BUY Order
 // ------------------------------------------------------------
@@ -68,7 +92,8 @@ void MatchingEngine::matchBuy(Order& buyOrder, OrderBook& book)
     {
         Price bestAskPrice = book.getBestAsk();
 
-        if (!canMatchBuy(buyOrder.price, bestAskPrice))
+        if (buyOrder.type == OrderType::LIMIT &&
+            !canMatchBuy(buyOrder.price, bestAskPrice))
             break;
 
         Order& sellOrder = book.getBestAskOrder(); // FIFO at best price
@@ -93,6 +118,7 @@ void MatchingEngine::matchBuy(Order& buyOrder, OrderBook& book)
         // Remove fully filled order
         if (sellOrder.quantity == 0)
         {
+            orderToInstrument.erase(sellOrder.id);
             book.removeBestAskOrder();
         }
     }
@@ -107,7 +133,8 @@ void MatchingEngine::matchSell(Order& sellOrder, OrderBook& book)
     {
         Price bestBidPrice = book.getBestBid();
 
-        if (!canMatchSell(sellOrder.price, bestBidPrice))
+        if (sellOrder.type == OrderType::LIMIT &&
+            !canMatchSell(sellOrder.price, bestBidPrice))
             break;
 
         Order& buyOrder = book.getBestBidOrder(); // FIFO at best price
@@ -134,6 +161,7 @@ void MatchingEngine::matchSell(Order& sellOrder, OrderBook& book)
         // Remove fully filled order
         if (buyOrder.quantity == 0)
         {
+            orderToInstrument.erase(buyOrder.id);
             book.removeBestBidOrder();
         }
     }
@@ -144,7 +172,11 @@ void MatchingEngine::matchSell(Order& sellOrder, OrderBook& book)
 // ------------------------------------------------------------
 void MatchingEngine::onTrade(const Trade& trade)
 {
-    // For now → print
+    if (tradeHandler)
+    {
+        tradeHandler(trade);
+    }
+
     std::cout << "TRADE | "
               << "Buy: " << trade.buyOrderId
               << " Sell: " << trade.sellOrderId

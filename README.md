@@ -48,3 +48,12 @@ matchBuy / matchSell
 Trades generated
       ↓
 Remaining qty → add to OrderBook
+
+
+Service mode (current)
+----------------------
+MatchingService
+  - owns a background worker thread
+  - accepts in-memory commands (place / cancel)
+  - forwards work to MatchingEngine
+  - exposes waitUntilIdle() for demos/tests

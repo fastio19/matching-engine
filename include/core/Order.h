@@ -3,7 +3,7 @@
 #include "Types.h"
 
 struct Order {
-    uint8_t id;              // unique order id
+    OrderId id;             // unique order id
     double price;            // ignored for MARKET orders
     uint32_t quantity;       // remaining qty
     Side side;               // buy/sell
