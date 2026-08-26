@@ -1,24 +1,25 @@
+#include <algorithm>
 #include <iostream>
-#include "orderbook/MatchingEngine.h"
-#include "utils/TimeUtils.h"
-#include "utils/IdGenerator.h"
-using namespace std;
+#include <utility>
 
-// ------------------------------------------------------------
-// Constructor
-// ------------------------------------------------------------
-MatchingEngine::MatchingEngine()
-{
-}
+#include "orderbook/MatchingEngine.h"
+#include "utils/IdGenerator.h"
+#include "utils/TimeUtils.h"
 
 // ------------------------------------------------------------
 // Process Incoming Order
 // ------------------------------------------------------------
 void MatchingEngine::processOrder(Order order)
 {
-    if (order.quantity <= 0 || order.price <= 0)
+    if (order.quantity == 0)
     {
-        std::cerr << "Invalid order\n";
+        std::cerr << "Invalid order: quantity must be > 0\n";
+        return;
+    }
+
+    if (order.type == OrderType::LIMIT && order.price <= 0)
+    {
+        std::cerr << "Invalid order: limit price must be > 0\n";
         return;
     }
 
@@ -26,18 +27,21 @@ void MatchingEngine::processOrder(Order order)
 
     if (order.side == Side::BUY)
     {
-        matchBuy(order,book);
+        matchBuy(order, book);
     }
-    else    
+    else
     {
-        matchSell(order,book);
+        matchSell(order, book);
     }
 
-    // If still remaining → add to book
-    if (order.quantity > 0)
+    if (order.quantity > 0 && order.type == OrderType::LIMIT)
     {
         book.addOrder(order);
         orderToInstrument[order.id] = order.instrumentId;
+    }
+    else if (order.quantity > 0)
+    {
+        std::cerr << "Unfilled market order quantity discarded: " << order.quantity << "\n";
     }
 }
 
@@ -46,12 +50,13 @@ void MatchingEngine::processOrder(Order order)
 // ------------------------------------------------------------
 void MatchingEngine::cancelOrder(OrderId orderId)
 {
-    auto orderToInstrumentIt  = orderToInstrument.find(orderId);
+    auto orderToInstrumentIt = orderToInstrument.find(orderId);
     if (orderToInstrumentIt == orderToInstrument.end())
     {
         std::cerr << "Order not found: " << orderId << "\n";
         return;
     }
+
     uint32_t instrumentId = orderToInstrumentIt->second;
 
     auto instrumentBookIt = books.find(instrumentId);
@@ -65,6 +70,20 @@ void MatchingEngine::cancelOrder(OrderId orderId)
     orderToInstrument.erase(orderToInstrumentIt);
 }
 
+void MatchingEngine::printAllBooks() const
+{
+    for (const auto& [instrumentId, book] : books)
+    {
+        std::cout << "\n=== Instrument: " << instrumentId << " ===\n";
+        book.print();
+    }
+}
+
+void MatchingEngine::setTradeHandler(std::function<void(const Trade&)> handler)
+{
+    tradeHandler = std::move(handler);
+}
+
 // ------------------------------------------------------------
 // Match BUY Order
 // ------------------------------------------------------------
@@ -74,12 +93,15 @@ void MatchingEngine::matchBuy(Order& buyOrder, OrderBook& book)
     {
         Price bestAskPrice = book.getBestAsk();
 
-        if (!canMatchBuy(buyOrder.price, bestAskPrice))
+        if (buyOrder.type == OrderType::LIMIT &&
+            !canMatchBuy(buyOrder.price, bestAskPrice))
+        {
             break;
+        }
 
-        Order& sellOrder = book.getBestAskOrder(); // FIFO at best price
+        Order& sellOrder = book.getBestAskOrder();
 
-        int tradedQty = std::min(buyOrder.quantity, sellOrder.quantity);
+        uint32_t tradedQty = std::min(buyOrder.quantity, sellOrder.quantity);
 
         Trade trade(
             buyOrder.id,
@@ -96,9 +118,9 @@ void MatchingEngine::matchBuy(Order& buyOrder, OrderBook& book)
         buyOrder.quantity -= tradedQty;
         sellOrder.quantity -= tradedQty;
 
-        // Remove fully filled order
         if (sellOrder.quantity == 0)
         {
+            orderToInstrument.erase(sellOrder.id);
             book.removeBestAskOrder();
         }
     }
@@ -113,14 +135,16 @@ void MatchingEngine::matchSell(Order& sellOrder, OrderBook& book)
     {
         Price bestBidPrice = book.getBestBid();
 
-        if (!canMatchSell(sellOrder.price, bestBidPrice))
+        if (sellOrder.type == OrderType::LIMIT &&
+            !canMatchSell(sellOrder.price, bestBidPrice))
+        {
             break;
+        }
 
-        Order& buyOrder = book.getBestBidOrder(); // FIFO at best price
+        Order& buyOrder = book.getBestBidOrder();
 
-        int tradedQty = std::min(sellOrder.quantity, buyOrder.quantity);
+        uint32_t tradedQty = std::min(sellOrder.quantity, buyOrder.quantity);
 
-        // Create trade
         Trade trade(
             buyOrder.id,
             sellOrder.id,
@@ -133,13 +157,12 @@ void MatchingEngine::matchSell(Order& sellOrder, OrderBook& book)
 
         onTrade(trade);
 
-        // Update quantities
         sellOrder.quantity -= tradedQty;
         buyOrder.quantity -= tradedQty;
 
-        // Remove fully filled order
         if (buyOrder.quantity == 0)
         {
+            orderToInstrument.erase(buyOrder.id);
             book.removeBestBidOrder();
         }
     }
@@ -152,19 +175,19 @@ void MatchingEngine::onTrade(const Trade& trade)
 {
     trades.push_back(trade);
 
-    // For now → print
+    if (tradeHandler)
+    {
+        tradeHandler(trade);
+    }
+
     std::cout << "TRADE | "
               << "BuyerId: " << trade.buyOrderId
               << " SellerId: " << trade.sellOrderId
               << " Price: " << trade.price
               << " Qty: " << trade.quantity
               << "\n";
-
-    // Future:
-    // - Publish to market data
-    // - Persist to DB
-    // - Send to Kafka
 }
+
 // ------------------------------------------------------------
 // Helpers
 // ------------------------------------------------------------
@@ -176,15 +199,6 @@ bool MatchingEngine::canMatchBuy(Price buyPrice, Price bestAsk) const
 bool MatchingEngine::canMatchSell(Price sellPrice, Price bestBid) const
 {
     return sellPrice <= bestBid;
-}
-
-void MatchingEngine::printAllBooks() const
-{
-    for (const auto& [instrumentId, book] : books)
-    {
-        std::cout << "Instrument: " << instrumentId << "\n";
-        book.print();
-    }
 }
 
 // ------------------------------------------------------------

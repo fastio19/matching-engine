@@ -25,4 +25,8 @@ CMakeCache.txt
 cmake_install.cmake
 Makefile
 
+# Generated vcpkg state
+vcpkg_installed/
+vcpkg_tool/
+
 # 🧹

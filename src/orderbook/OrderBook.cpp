@@ -41,7 +41,9 @@ void OrderBook::removeBestAskOrder()
         asks.erase(it);
         return;
     }
+    const OrderId removedOrderId = orderList.front().id;
     orderList.pop_front();
+    orderMap.erase(removedOrderId);
 
     // Remove price level if empty
     if (orderList.empty())
@@ -65,13 +67,20 @@ void OrderBook::removeBestBidOrder()
     }
 
     // Remove oldest order (FIFO)
+    const OrderId removedOrderId = orderList.front().id;
     orderList.pop_front();
+    orderMap.erase(removedOrderId);
 
     // If no more orders at this price → remove level
     if (orderList.empty())
     {
         bids.erase(it);
     }
+}
+
+bool OrderBook::empty() const
+{
+    return bids.empty() && asks.empty();
 }
 
 void OrderBook::addOrder(const Order& order)
