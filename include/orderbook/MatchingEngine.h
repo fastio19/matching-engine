@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Order.h"
-#include "Trade.h"
-#include "OrderBook.h"
+#include "core/Order.h"
+#include "core/Trade.h"
+#include "orderbook/OrderBook.h"
 
 // ------------------------------------------------------------
 // MatchingEngine
@@ -11,7 +11,7 @@
 // ------------------------------------------------------------
 class MatchingEngine {
 public:
-    explicit MatchingEngine(OrderBook& orderBook);
+    MatchingEngine();
 
     // Entry point: process a new incoming order
     void processOrder(Order order);
@@ -19,10 +19,17 @@ public:
     // Cancel existing order
     void cancelOrder(OrderId orderId);
 
+    void printAllBooks() const;
+
+    // For testing
+    const std::vector<Trade>& getTrades() const;
+    void clearTrades();
+
 private:
     //For Each instrument, we maintain a separate order book
     std::unordered_map<uint32_t, OrderBook> books;
     std::unordered_map<OrderId, uint32_t> orderToInstrument;
+    std::vector<Trade> trades;
     // ------------------- Matching Logic -------------------
 
     // Match incoming BUY order against asks
@@ -40,4 +47,6 @@ private:
 
     bool canMatchBuy(Price buyPrice, Price bestAsk) const;
     bool canMatchSell(Price sellPrice, Price bestBid) const;
+    
+    
 };

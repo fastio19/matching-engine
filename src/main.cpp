@@ -1,13 +1,12 @@
 #include <iostream>
-#include "OrderBook.h"
-#include "MatchingEngine.h"
-#include "Types.h"
-#include "TimeUtils.h"
+#include "orderbook/OrderBook.h"
+#include "orderbook/MatchingEngine.h"
+#include "core/Types.h"
+#include "utils/TimeUtils.h"
 
 using namespace std;
 int main() {
-    OrderBook book;
-    MatchingEngine engine(book);
+    MatchingEngine engine;
 
     // -------- STOCK 1 (instrumentId = 1) --------
     Order o1{1, 101, 50, Side::SELL, OrderType::LIMIT, Market::NSE, TimeUtils::getCurrentTime(), 1};
@@ -23,5 +22,5 @@ int main() {
     engine.processOrder(o3);
     engine.processOrder(o4);  // matches ONLY with o3
 
-    book.print();
+    engine.printAllBooks();
 }

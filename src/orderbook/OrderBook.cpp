@@ -1,4 +1,4 @@
-#include "OrderBook.h"
+#include "orderbook/OrderBook.h"
 #include <iostream>
 
 bool OrderBook::hasBids() const
@@ -192,23 +192,47 @@ void OrderBook::modifyOrder(const Order& newOrder)
 
 void OrderBook::print() const
 {
-    std::cout << "\n--- ORDER BOOK ---\n";
+    std::cout << "\n========== ORDER BOOK ==========\n";
 
-    std::cout << "ASKS:\n";
-    for (const auto& [price, orders] : asks)
+    // -------- ASKS (Sell Orders) --------
+    std::cout << "ASKS (Sell):\n";
+    if (asks.empty())
     {
-        for (const auto& o : orders)
+        std::cout << "  [Empty]\n";
+    }
+    else
+    {
+        for (const auto& [price, orderList] : asks)
         {
-            std::cout << price << " | " << o.quantity << "\n";
+            uint32_t totalQty = 0;
+            for (const auto& order : orderList)
+            {
+                totalQty += order.quantity;
+            }
+
+            std::cout << "  " << price << " | " << totalQty << "\n";
         }
     }
 
-    std::cout << "BIDS:\n";
-    for (const auto& [price, orders] : bids)
+    // -------- BIDS (Buy Orders) --------
+    std::cout << "\nBIDS (Buy):\n";
+    if (bids.empty())
     {
-        for (const auto& o : orders)
+        std::cout << "  [Empty]\n";
+    }
+    else
+    {
+        for (const auto& [price, orderList] : bids)
         {
-            std::cout << price << " | " << o.quantity << "\n";
+            uint32_t totalQty = 0;
+            for (const auto& order : orderList)
+            {
+                totalQty += order.quantity;
+            }
+
+            std::cout << "  " << price << " | " << totalQty << "\n";
         }
     }
+
+    std::cout << "================================\n";
 }

@@ -1,9 +1,15 @@
 #include <iostream>
-#include "MatchingEngine.h"
+#include "orderbook/MatchingEngine.h"
 #include "utils/TimeUtils.h"
 #include "utils/IdGenerator.h"
 using namespace std;
 
+// ------------------------------------------------------------
+// Constructor
+// ------------------------------------------------------------
+MatchingEngine::MatchingEngine()
+{
+}
 
 // ------------------------------------------------------------
 // Process Incoming Order
@@ -144,10 +150,12 @@ void MatchingEngine::matchSell(Order& sellOrder, OrderBook& book)
 // ------------------------------------------------------------
 void MatchingEngine::onTrade(const Trade& trade)
 {
+    trades.push_back(trade);
+
     // For now → print
     std::cout << "TRADE | "
-              << "Buy: " << trade.buyOrderId
-              << " Sell: " << trade.sellOrderId
+              << "BuyerId: " << trade.buyOrderId
+              << " SellerId: " << trade.sellOrderId
               << " Price: " << trade.price
               << " Qty: " << trade.quantity
               << "\n";
@@ -168,4 +176,26 @@ bool MatchingEngine::canMatchBuy(Price buyPrice, Price bestAsk) const
 bool MatchingEngine::canMatchSell(Price sellPrice, Price bestBid) const
 {
     return sellPrice <= bestBid;
+}
+
+void MatchingEngine::printAllBooks() const
+{
+    for (const auto& [instrumentId, book] : books)
+    {
+        std::cout << "Instrument: " << instrumentId << "\n";
+        book.print();
+    }
+}
+
+// ------------------------------------------------------------
+// For Testing
+// ------------------------------------------------------------
+const std::vector<Trade>& MatchingEngine::getTrades() const
+{
+    return trades;
+}
+
+void MatchingEngine::clearTrades()
+{
+    trades.clear();
 }
