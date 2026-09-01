@@ -1,63 +1,63 @@
- 
-matching-engine/
-├── include/                  # Header files (.h)
-│   ├── core/
-│   │   ├── Types.h
-│   │   ├── Order.h
-│   │   ├── Trade.h
-│   │
-│   ├── orderbook/
-│   │   ├── OrderBook.h
-│   │   ├── MatchingEngine.h
-│   │
-│   ├── utils/
-│   │   ├── TimeUtils.h
-│   │   ├── IdGenerator.h
-│
-├── src/                      # Implementation files (.cpp)
-│   ├── orderbook/
-│   │   ├── OrderBook.cpp
-│   │   ├── MatchingEngine.cpp
-│   │
-│   ├── utils/
-│   │   ├── TimeUtils.cpp
-│   │
-│   └── main.cpp
-│
-├── tests/                    # Unit tests
-│   ├── OrderBookTest.cpp
-│
-├── benchmarks/               # Performance tests (later 🔥)
-│   ├── latency_test.cpp
-│
-├── build/                    # Compiled output (ignored in git)
-│
-├── CMakeLists.txt            # Build system (later)
-├── .gitignore
-└── README.md
+# Matching Engine
 
+Production-style C++ order matching engine with a broker REST API, Kafka command/event streams, PostgreSQL trade persistence, UDP latest-traded-price broadcast, recovery snapshots, metrics, tests, Docker files, and GitHub Actions CI.
 
+## System overview
 
+The application is split into small services/processes:
 
+- `broker_api_app`: accepts broker/client HTTP requests, validates them, and publishes order commands to Kafka.
+- `kafka_matching_app`: consumes order commands, runs the matching engine, publishes trades/book updates, broadcasts LTP over UDP, and saves open-order snapshots.
+- `trade_db_consumer_app`: consumes matched trades from Kafka and stores them idempotently in PostgreSQL.
+- Kafka: message bus between services.
+- PostgreSQL: durable storage for completed trades.
+
+Main flow:
+
+```text
+Client/Broker
+  -> Broker API
+  -> Kafka orders.commands
+  -> Matching Engine
+  -> Kafka orders.trades
+  -> Trade DB Consumer
+  -> PostgreSQL
+```
+
+Fast market-data flow:
+
+```text
+Matching Engine -> UDP multicast LTP -> brokers/listeners
+```
+
+Order matching flow:
+
+```text
 Incoming Order
-      ↓
-MatchingEngine.processOrder()
-      ↓
-matchBuy / matchSell
-      ↓
-Trades generated
-      ↓
-Remaining qty → add to OrderBook
+  -> MatchingEngine.processOrder()
+  -> matchBuy / matchSell
+  -> trades generated
+  -> remaining quantity added to OrderBook
+```
 
-Kafka design
-------------
-- orders.commands: place/cancel/modify commands keyed by instrumentId
-- orders.trades: matched trade events keyed by instrumentId
-- orders.book: book snapshots / top-of-book updates
-- orders.dlq: malformed or unprocessable messages
-- KafkaOrderCommandConsumer: parses commands and dispatches place/cancel/modify callbacks
-- kafka_matching_app: runnable Kafka-backed matcher entrypoint
-- UDP multicast: broadcasts the latest traded price to connected brokers/listeners
+## Kafka topics
+
+- `orders.commands`: place/cancel/modify commands keyed by `instrumentId`.
+- `orders.trades`: matched trade events used by DB persistence, reporting, audit, risk, broker confirmations, and future downstream services.
+- `orders.book`: top-of-book/book update stream. It is published now, but no permanent consumer is implemented yet.
+- `orders.dlq`: malformed or unprocessable messages.
+
+Kafka is used for reliable event streaming. PostgreSQL is used for permanent trade storage. UDP is used for fast LTP fan-out, not for durable records.
+
+## Important production notes
+
+- Keep `.env` out of git; use environment variables locally.
+- Use a secret manager in production, such as Azure Key Vault, HashiCorp Vault, cloud secrets, Docker secrets, or Kubernetes secrets.
+- Partition `orders.commands` by `instrumentId` so one instrument's commands stay ordered.
+- Run multiple matcher replicas in the same Kafka consumer group for parallelism.
+- Give each matcher replica its own recovery snapshot file/volume.
+- For exchange-grade UDP market data, add sequence numbers, heartbeat, snapshot, and replay/recovery services.
+- GitHub Actions CI builds the project and runs tests on push and pull request.
 
 Scaling model
 -------------
