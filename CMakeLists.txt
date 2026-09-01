@@ -38,7 +38,7 @@ add_library(api
     src/api/SimpleHttpServer.cpp
 )
 
-target_link_libraries(api PRIVATE nlohmann_json::nlohmann_json engine)
+target_link_libraries(api PUBLIC nlohmann_json::nlohmann_json engine)
 
 # ---------------- MARKETDATA LIBRARY ----------------
 add_library(marketdata
@@ -51,7 +51,7 @@ add_library(marketdata
     src/marketdata/udp/UDPPublisher.cpp
 )
 
-target_link_libraries(marketdata PRIVATE nlohmann_json::nlohmann_json)
+target_link_libraries(marketdata PUBLIC nlohmann_json::nlohmann_json)
 target_link_libraries(marketdata PRIVATE recovery)
 if(WIN32)
     target_link_libraries(marketdata PRIVATE
