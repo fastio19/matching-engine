@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: matching-engine-postgres
+    environment:
+      POSTGRES_DB: matching_engine
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - matching-engine-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d matching_engine"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  matching-engine-postgres-data:

@@ -19,6 +19,10 @@ out/
 # 🧠 VS Code
 .vscode/
 
+# 🔐 Local deployment config / runtime state
+.env
+matching-engine-state*.json
+
 # 🧰 CMake (for later use)
 CMakeFiles/
 CMakeCache.txt

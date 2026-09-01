@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 
 #include "core/Trade.h"
@@ -28,6 +29,10 @@ public:
     KafkaPublisher& operator=(const KafkaPublisher&) = delete;
 
     void publishTrade(const Trade& trade) override;
+    void publishBookUpdate(uint32_t instrumentId,
+                           std::optional<Price> bestBid,
+                           std::optional<Price> bestAsk,
+                           uint64_t timestamp) override;
 
 private:
     std::string brokers;
@@ -41,8 +46,16 @@ private:
     void initProducer();
 
     void serializeAndSend(const Trade& trade);
+    void serializeAndSendBookUpdate(uint32_t instrumentId,
+                                    std::optional<Price> bestBid,
+                                    std::optional<Price> bestAsk,
+                                    uint64_t timestamp);
 
     std::string serializeTrade(const Trade& trade) const;
+    std::string serializeBookUpdate(uint32_t instrumentId,
+                                    std::optional<Price> bestBid,
+                                    std::optional<Price> bestAsk,
+                                    uint64_t timestamp) const;
 
     void flush();
 };

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 #include <cstdint>
 
@@ -24,6 +25,13 @@ public:
 
     // Interface implementation
     void publishTrade(const Trade& trade) override;
+    void publishLastTradedPrice(uint32_t instrumentId,
+                                Price lastTradedPrice,
+                                uint64_t timestamp) override;
+    void publishBookUpdate(uint32_t instrumentId,
+                           std::optional<Price> bestBid,
+                           std::optional<Price> bestAsk,
+                           uint64_t timestamp) override;
 
 private:
     std::string group;
@@ -37,6 +45,20 @@ private:
     void initSocket();
     void setupMulticast();
     void serializeAndSend(const Trade& trade);
+    void serializeAndSendLastTradedPrice(uint32_t instrumentId,
+                                         Price lastTradedPrice,
+                                         uint64_t timestamp);
+    void serializeAndSendBookUpdate(uint32_t instrumentId,
+                                    std::optional<Price> bestBid,
+                                    std::optional<Price> bestAsk,
+                                    uint64_t timestamp);
 
     std::string serializeTrade(const Trade& trade) const;
+    std::string serializeLastTradedPrice(uint32_t instrumentId,
+                                         Price lastTradedPrice,
+                                         uint64_t timestamp) const;
+    std::string serializeBookUpdate(uint32_t instrumentId,
+                                    std::optional<Price> bestBid,
+                                    std::optional<Price> bestAsk,
+                                    uint64_t timestamp) const;
 };

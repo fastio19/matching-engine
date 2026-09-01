@@ -1,0 +1,15 @@
+build/
+bin/
+out/
+.git/
+.vs/
+.vscode/
+*.exe
+*.pdb
+*.ilk
+*.obj
+*.o
+matching-engine-state*.json
+.env
+vcpkg_installed/
+vcpkg_tool/

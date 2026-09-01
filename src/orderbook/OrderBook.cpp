@@ -78,6 +78,23 @@ void OrderBook::removeBestBidOrder()
     }
 }
 
+std::vector<Order> OrderBook::getOpenOrders() const
+{
+    std::vector<Order> orders;
+
+    for (const auto& [_, orderList] : bids)
+    {
+        orders.insert(orders.end(), orderList.begin(), orderList.end());
+    }
+
+    for (const auto& [_, orderList] : asks)
+    {
+        orders.insert(orders.end(), orderList.begin(), orderList.end());
+    }
+
+    return orders;
+}
+
 bool OrderBook::empty() const
 {
     return bids.empty() && asks.empty();

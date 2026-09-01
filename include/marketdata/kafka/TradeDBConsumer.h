@@ -1,17 +1,14 @@
 #pragma once
 
-#include <string>
 #include <atomic>
+#include <memory>
+#include <string>
 
 // Kafka forward declarations
 struct rd_kafka_s;
 typedef struct rd_kafka_s rd_kafka_t;
 
-// PostgreSQL forward declarations
-namespace pqxx
-{
-    class connection;
-}
+class PostgreSQLTradeStore;
 
 // ------------------------------------------------------------
 // TradeDBConsumer
@@ -46,7 +43,7 @@ private:
 
     rd_kafka_t* consumer;
 
-    pqxx::connection* dbConnection;
+    std::unique_ptr<PostgreSQLTradeStore> tradeStore;
 
     std::atomic<bool> running;
 

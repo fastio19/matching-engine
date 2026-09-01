@@ -38,12 +38,13 @@ public:
     
     void removeBestAskOrder();
     void removeBestBidOrder();
+    std::vector<Order> getOpenOrders() const;
 
     // ------------------- Debug -------------------
 
     void print() const;
 private:
-    std::map<Price, OrderList, std::greater<>> bids;
-    std::map<Price, OrderList> asks;
+    std::map<Price, OrderList, std::greater<>> bids;    // buyers sorted by price descending
+    std::map<Price, OrderList> asks; // sellers sorted by price ascending
     std::unordered_map<OrderId, std::pair<Price, OrderList::iterator>> orderMap;
 };

@@ -82,6 +82,21 @@ void UDPPublisher::publishTrade(const Trade& trade)
     serializeAndSend(trade);
 }
 
+void UDPPublisher::publishLastTradedPrice(uint32_t instrumentId,
+                                          Price lastTradedPrice,
+                                          uint64_t timestamp)
+{
+    serializeAndSendLastTradedPrice(instrumentId, lastTradedPrice, timestamp);
+}
+
+void UDPPublisher::publishBookUpdate(uint32_t instrumentId,
+                                     std::optional<Price> bestBid,
+                                     std::optional<Price> bestAsk,
+                                     uint64_t timestamp)
+{
+    serializeAndSendBookUpdate(instrumentId, bestBid, bestAsk, timestamp);
+}
+
 // ------------------------------------------------------------
 // initSocket
 // ------------------------------------------------------------
@@ -144,12 +159,107 @@ std::string UDPPublisher::serializeTrade(const Trade& trade) const
     return oss.str();
 }
 
+std::string UDPPublisher::serializeLastTradedPrice(uint32_t instrumentId,
+                                                   Price lastTradedPrice,
+                                                   uint64_t timestamp) const
+{
+    std::ostringstream oss;
+
+    oss << "{"
+        << "\"eventType\":\"LAST_TRADED_PRICE\","
+        << "\"instrumentId\":" << instrumentId << ","
+        << "\"lastTradedPrice\":" << lastTradedPrice << ","
+        << "\"timestamp\":" << timestamp
+        << "}";
+
+    return oss.str();
+}
+
+std::string UDPPublisher::serializeBookUpdate(uint32_t instrumentId,
+                                              std::optional<Price> bestBid,
+                                              std::optional<Price> bestAsk,
+                                              uint64_t timestamp) const
+{
+    std::ostringstream oss;
+
+    oss << "{"
+        << "\"eventType\":\"BOOK_UPDATE\","
+        << "\"instrumentId\":" << instrumentId << ","
+        << "\"bestBid\":" << bestBid.value_or(0.0) << ","
+        << "\"bestAsk\":" << bestAsk.value_or(0.0) << ","
+        << "\"timestamp\":" << timestamp
+        << "}";
+
+    return oss.str();
+}
+
 // ------------------------------------------------------------
 // serializeAndSend
 // ------------------------------------------------------------
 void UDPPublisher::serializeAndSend(const Trade& trade)
 {
     std::string payload = serializeTrade(trade);
+
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+
+    if (inet_pton(AF_INET, group.c_str(), &addr.sin_addr) != 1)
+    {
+        throw std::runtime_error("Invalid multicast group address: " + group);
+    }
+
+    int bytesSent = sendto(
+        toNativeSocket(socketFd),
+        payload.c_str(),
+        static_cast<int>(payload.size()),
+        0,
+        reinterpret_cast<sockaddr*>(&addr),
+        sizeof(addr)
+    );
+
+    if (bytesSent < 0)
+    {
+        throw std::runtime_error("Failed to send UDP multicast packet");
+    }
+}
+
+void UDPPublisher::serializeAndSendLastTradedPrice(uint32_t instrumentId,
+                                                   Price lastTradedPrice,
+                                                   uint64_t timestamp)
+{
+    std::string payload = serializeLastTradedPrice(instrumentId, lastTradedPrice, timestamp);
+
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+
+    if (inet_pton(AF_INET, group.c_str(), &addr.sin_addr) != 1)
+    {
+        throw std::runtime_error("Invalid multicast group address: " + group);
+    }
+
+    int bytesSent = sendto(
+        toNativeSocket(socketFd),
+        payload.c_str(),
+        static_cast<int>(payload.size()),
+        0,
+        reinterpret_cast<sockaddr*>(&addr),
+        sizeof(addr)
+    );
+
+    if (bytesSent < 0)
+    {
+        throw std::runtime_error("Failed to send UDP multicast packet");
+    }
+}
+
+void UDPPublisher::serializeAndSendBookUpdate(uint32_t instrumentId,
+                                              std::optional<Price> bestBid,
+                                              std::optional<Price> bestAsk,
+                                              uint64_t timestamp)
+{
+    std::string payload = serializeBookUpdate(instrumentId, bestBid, bestAsk, timestamp);
 
     sockaddr_in addr{};
     addr.sin_family = AF_INET;

@@ -1,12 +1,12 @@
 #include <iostream>
-#include "service/MatchingService.h"
+#include "orderbook/MatchingEngine.h"
 #include "core/Types.h"
 #include "utils/TimeUtils.h"
 
 using namespace std;
 int main() {
-    MatchingService service;
-    service.start();
+    MatchingEngine engine;
+    engine.setTradeLoggingEnabled(true);
 
     // -------- STOCK 1 (instrumentId = 1) --------
     Order o1{1, 101, 50, Side::SELL, OrderType::LIMIT, Market::NSE, TimeUtils::getCurrentTime(), 1};
@@ -16,13 +16,11 @@ int main() {
     Order o3{3, 200, 40, Side::SELL, OrderType::LIMIT, Market::NSE, TimeUtils::getCurrentTime(), 2};
     Order o4{4, 210, 40, Side::BUY, OrderType::LIMIT, Market::NSE, TimeUtils::getCurrentTime(), 2};
 
-    service.submitOrder(o1);
-    service.submitOrder(o2);  // matches ONLY with o1
+    engine.processOrder(o1);
+    engine.processOrder(o2);  // matches ONLY with o1
 
-    service.submitOrder(o3);
-    service.submitOrder(o4);  // matches ONLY with o3
+    engine.processOrder(o3);
+    engine.processOrder(o4);  // matches ONLY with o3
 
-    service.waitUntilIdle();
-    service.engine().printAllBooks();
-    service.stop();
+    engine.printAllBooks();
 }

@@ -1,16 +1,12 @@
 #include "marketdata/kafka/TradeDBConsumer.h"
 
 #include <iostream>
-#include <memory>
 #include <stdexcept>
 
 #include <librdkafka/rdkafka.h>
 
-#include <pqxx/pqxx>
-
-#include <nlohmann/json.hpp>
-
-using json = nlohmann::json;
+#include "marketdata/db/PostgreSQLTradeStore.h"
+#include "marketdata/kafka/KafkaSchema.h"
 
 // ------------------------------------------------------------
 // Constructor
@@ -25,7 +21,6 @@ TradeDBConsumer::TradeDBConsumer(
       groupId(consumerGroup),
       dbConnStr(dbConnectionString),
       consumer(nullptr),
-      dbConnection(nullptr),
       running(false)
 {
     initConsumer();
@@ -49,11 +44,6 @@ TradeDBConsumer::~TradeDBConsumer()
         rd_kafka_destroy(consumer);
     }
 
-    if (dbConnection)
-    {
-        delete dbConnection;
-        dbConnection = nullptr;
-    }
 }
 
 // ------------------------------------------------------------
@@ -185,33 +175,8 @@ void TradeDBConsumer::subscribe()
 // ------------------------------------------------------------
 void TradeDBConsumer::initDatabase()
 {
-    auto connection = std::make_unique<pqxx::connection>(dbConnStr);
-
-    if (!connection->is_open())
-    {
-        throw std::runtime_error(
-            "Failed to connect to PostgreSQL"
-        );
-    }
-
+    tradeStore = std::make_unique<PostgreSQLTradeStore>(dbConnStr);
     std::cout << "[TradeDBConsumer] Connected to PostgreSQL\n";
-
-    pqxx::work txn(*connection);
-    txn.exec(
-        R"(
-            CREATE TABLE IF NOT EXISTS trades (
-                trade_id BIGINT PRIMARY KEY,
-                buy_order_id BIGINT NOT NULL,
-                sell_order_id BIGINT NOT NULL,
-                instrument_id INTEGER NOT NULL,
-                price DOUBLE PRECISION NOT NULL,
-                quantity INTEGER NOT NULL,
-                timestamp BIGINT NOT NULL
-            )
-        )");
-    txn.commit();
-
-    dbConnection = connection.release();
 }
 
 // ------------------------------------------------------------
@@ -287,58 +252,11 @@ bool TradeDBConsumer::processMessage(
 void TradeDBConsumer::insertTrade(
     const std::string& payload)
 {
-    if (!dbConnection || !dbConnection->is_open())
+    if (!tradeStore || !tradeStore->isOpen())
     {
         throw std::runtime_error("PostgreSQL connection is not open");
     }
 
-    json tradeJson = json::parse(payload);
-
-    const uint64_t tradeId =
-        tradeJson.at("tradeId").get<uint64_t>();
-
-    const uint64_t buyOrderId =
-        tradeJson.at("buyOrderId").get<uint64_t>();
-
-    const uint64_t sellOrderId =
-        tradeJson.at("sellOrderId").get<uint64_t>();
-
-    const uint32_t instrumentId =
-        tradeJson.at("instrumentId").get<uint32_t>();
-
-    const double price =
-        tradeJson.at("price").get<double>();
-
-    const uint32_t quantity =
-        tradeJson.at("quantity").get<uint32_t>();
-
-    const uint64_t timestamp =
-        tradeJson.at("timestamp").get<uint64_t>();
-
-    pqxx::work txn(*dbConnection);
-
-    txn.exec_params(
-        R"(
-            INSERT INTO trades (
-                trade_id,
-                buy_order_id,
-                sell_order_id,
-                instrument_id,
-                price,
-                quantity,
-                timestamp
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-            ON CONFLICT (trade_id) DO NOTHING
-        )",
-        tradeId,
-        buyOrderId,
-        sellOrderId,
-        instrumentId,
-        price,
-        quantity,
-        timestamp
-    );
-
-    txn.commit();
+    const KafkaTradeEventMessage tradeMessage = parseTradeEventMessage(payload);
+    tradeStore->insertTrade(tradeMessage);
 }
